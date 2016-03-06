@@ -22,11 +22,16 @@ function loadImage(src, callback) {
 }
 
 function disturb(x, y, z){
+    console.log('disturb', x, y, z);
     if(x < 2 || x > width-2 || y < 1 || y > height-2)
         return;
     var i = x+y*width;
-    buffer0[i] += z;
-    buffer0[i-1] -= z;
+    buffer0[i][0] += z;
+    buffer0[i][1] += z;
+    buffer0[i][2] += z;
+    buffer0[i-1][0] -= z;
+    buffer0[i-1][1] -= z;
+    buffer0[i-1][2] -= z;
 }
 
 function process(){
@@ -39,7 +44,9 @@ function process(){
     // none of the edges. row by row
     for(i=width+1;i<size-width-1;i+=2){
         for(x=1;x<width-1;x++,i++){
-            buffer0[i] = (buffer0[i]+buffer0[i+1]+buffer0[i-1]+buffer0[i-width]+buffer0[i+width])/5;
+            buffer0[i][0] = (buffer0[i][0]+buffer0[i+1][0]+buffer0[i-1][0]+buffer0[i-width][0]+buffer0[i+width][0])/5;
+            buffer0[i][1] = (buffer0[i][1]+buffer0[i+1][1]+buffer0[i-1][1]+buffer0[i-width][1]+buffer0[i+width][1])/5;
+            buffer0[i][2] = (buffer0[i][2]+buffer0[i+1][2]+buffer0[i-1][2]+buffer0[i-width][2]+buffer0[i+width][2])/5;
         }
     }
 
@@ -47,19 +54,22 @@ function process(){
         for(x=1;x<width-1;x++,i++){
             // wave propagation
             // why do we divide by 2? what is buffer0 vs. buffer1 ?
-            var waveHeight = (buffer0[i-1] + buffer0[i+1] + buffer0[i+width] + buffer0[i-width])/2-buffer1[i]; // buffer1 is the old value
-            buffer1[i] = waveHeight; // buffer1 gets updated to be the new val
+            //var waveHeight = (buffer0[i-1] + buffer0[i+1] + buffer0[i+width] + buffer0[i-width])/2-buffer1[i]; // buffer1 is the old value
+            buffer1[i][0] = 0.99*(buffer0[i-1][0] + buffer0[i+1][0] + buffer0[i+width][0] + buffer0[i-width][0])/2-buffer1[i][0]; // buffer1 is the old value
+            buffer1[i][1] = 0.99*(buffer0[i-1][1] + buffer0[i+1][1] + buffer0[i+width][1] + buffer0[i-width][1])/2.01-buffer1[i][1]; // buffer1 is the old value
+            buffer1[i][2] = 0.99*(buffer0[i-1][2] + buffer0[i+1][2] + buffer0[i+width][2] + buffer0[i-width][2])/2.02-buffer1[i][2]; // buffer1 is the old value
+            //buffer1[i] = waveHeight; // buffer1 gets updated to be the new val
             // calculate index in the texture with some fake referaction
-            var ti = i+floor((buffer1[i-2]-waveHeight)*0.08)+floor((buffer1[i-width]-waveHeight)*0.08)*width;
+            //var ti = i+floor((buffer1[i-2]-waveHeight)*0.08)+floor((buffer1[i-width]-waveHeight)*0.08)*width;
             // clamping
-            ti = ti < 0 ? 0 : ti > size ? size : ti;
+            //ti = ti < 0 ? 0 : ti > size ? size : ti;
             // some very fake lighting and caustics based on the wave height
             // and angle
-            var light = waveHeight*2.0-buffer1[i-2]*0.6,
-                i4 = i*4,
-                ti4 = ti*4;
+            //var light = waveHeight*2.0-buffer1[i-2]*0.6,
+            var    i4 = i*4;
+            //    ti4 = ti*4;
             // clamping
-            light = light < -10 ? -10 : light > 100 ? 100 : light;
+            //light = light < -10 ? -10 : light > 100 ? 100 : light;
             // i * 4 is how we get to the image data stored as R,G,B,A vals
             // consecutively in array
             /*
@@ -67,9 +77,14 @@ function process(){
             data[i4+1] = texture.data[ti4+1]+light; // G
             data[i4+2] = texture.data[ti4+2]+light; // B
             */
-            data[i4] = waveHeight * 0.8;
-            data[i4+1] = waveHeight * 0.6;
-            data[i4+2] = waveHeight;
+            /*
+            data[i4] = buffer1[i][0]*0.9;
+            data[i4+1] = buffer1[i][1];
+            data[i4+2] = buffer1[i][2];
+            */
+            data[i4] = .6*buffer1[i][0] + .5*buffer1[i][1] + .1*buffer1[i][2];
+            data[i4+1] = .2*buffer1[i][0] + .6*buffer1[i][1] + .6*buffer1[i][2];
+            data[i4+2] = .1*buffer1[i][0] + .1*buffer1[i][1] + .1*buffer1[i][2];
         }
     }
     // rain
@@ -89,8 +104,8 @@ var canvas = document.getElementById('c'),
     aux, i, texture;
 
 for(i=0;i<size;i++){
-    buffer0.push(0);
-    buffer1.push(0);
+    buffer0.push([0,0,0]); // R, G, B
+    buffer1.push([0,0,0]); // R, G, B
 }
 
 loadImage("black.png", function(img){
